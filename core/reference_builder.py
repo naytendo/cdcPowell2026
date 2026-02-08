@@ -1,7 +1,7 @@
 import numpy as np
-from ..trajectory import Trajectory
+from trajectory import Trajectory
 from typing import Optional, Tuple, Callable
-from ..models.continuous_model import ContinuousModel
+from models.continuous_model import ContinuousModel
 from .signal import Signal
 
 Vec = np.ndarray
@@ -37,7 +37,7 @@ def step_reference(
         h += climb_rate * dt
     X[N] = [v_ref, gamma_ref, h]
 
-    return Trajectory(t=t, X=X, U=U, dt=dt)
+    return Trajectory(t=t, X=X, U=U)
 
 
 # --- Helpers (same logic as before) ---
@@ -198,7 +198,7 @@ def piecewise_reference(
     t_arr = np.asarray(t_list, float)
     X_arr = np.vstack(X_list)
     U_arr = np.zeros((X_arr.shape[0]-1, 2), float)  # fill later (trim/feasibility)
-    return Trajectory(t=t_arr, X=X_arr, U=U_arr, dt=float(dt))
+    return Trajectory(t=t_arr, X=X_arr, U=U_arr)
 
 def level_flight_accelerate_reference(
     x0,
@@ -239,7 +239,7 @@ def level_flight_accelerate_reference(
         min_T: minimum duration floor
 
     Returns:
-        Trajectory(t, X, U, dt)
+        Trajectory(t, X, U)
     """
     x0 = np.asarray(x0, float)
     v0, gamma0, h0 = x0
@@ -294,7 +294,7 @@ def level_flight_accelerate_reference(
     U = np.zeros((N, 2), float)  # to be filled by trim / controller later
 
     # assuming you have a Trajectory dataclass or similar:
-    return Trajectory(t=t, X=X, U=U, dt=float(dt))
+    return Trajectory(t=t, X=X, U=U)
 
 def dvmax_vs_speed(f_ct, p, h=2000.0, gamma_ref=0.0,
                    v_min=140.0, v_max=320.0, nv=61,
@@ -485,7 +485,7 @@ def accelerate_with_push_over_reference(
     t_arr = np.asarray(t_list, float)
     X_arr = np.vstack(X_list)
     U_arr = np.zeros((X_arr.shape[0]-1, 2), float)
-    X_sig = Signal(t=t_arr, Y=X_arr, dt=dt, labels=["v", "gamma", "h"]) 
-    U_sig = Signal(t=t_arr[:-1], Y=U_arr, dt=dt, labels=["alpha", "throttle"])
-    return Trajectory(X=X_sig, U=U_sig, dt=float(dt))
+    X_sig = Signal(t=t_arr, Y=X_arr, labels=["v", "gamma", "h"]) 
+    U_sig = Signal(t=t_arr[:-1], Y=U_arr, labels=["alpha", "throttle"])
+    return Trajectory(X=X_sig, U=U_sig)
 

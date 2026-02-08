@@ -1,6 +1,6 @@
 
 import numpy as np
-from models import isa_troposphere
+from dynamics import isa_troposphere
 
 def numeric_foward_diff(f, x, u, p, eps=1e-5):
     x = np.asarray(x).copy()

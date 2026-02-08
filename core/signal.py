@@ -10,12 +10,16 @@ ArrF = NDArray[np.floating]
 class Signal:
     t: ArrF          # shape (N,)
     Y: ArrF          # shape (N, dim)
-    dt: float
     labels: tuple[str, ...] | None = None
 
     # -----------------------------
     # Basic properties
     # -----------------------------
+
+    @property 
+    def dt(self): 
+        # compute dt from t 
+        return self.t[1] - self.t[0]
     @property
     def N(self) -> int:
         return self.Y.shape[0]
@@ -32,7 +36,6 @@ class Signal:
         return Signal(
             t=self.t[idx],
             Y=self.Y[idx],
-            dt=self.dt,
             labels=self.labels,
         )
 

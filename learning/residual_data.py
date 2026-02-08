@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
-from ..core.signal import Signal
+from core.signal import Signal
 
 @dataclass(frozen=True, slots=True)
 class ResidualData:

@@ -7,12 +7,12 @@ class Simulator:
         self.model = model
 
     def run(self, x0, *, controller=None, ref=None, N=None):
-        dt = self.model.dt
-
-        X = [x0.copy()]
+        
+        
         U = []
 
-        x = x0.copy()
+        x = x0.copy().reshape(-1)
+        X = [x.copy()]
 
         for k in range(N):
             if controller is None:
@@ -20,19 +20,19 @@ class Simulator:
                 u = np.zeros(self.model.nu)
             else:
                 # controller may or may not use ref
-                u = controller.control(x, k, ref=ref)
+                u = controller.control(x, k)
 
-            x = self.model.step(x, u)
+            x = self.model.step(x, u, k).reshape(-1)
 
             U.append(u)
             X.append(x.copy())
 
         # wrap in Signals + Trajectory
-        t = np.arange(N+1) * dt
-        X_sig = Signal(t=t, Y=np.array(X), dt=dt)
-        U_sig = Signal(t=t[:-1], Y=np.array(U), dt=dt)
+        t = self.model.t
+        X_sig = Signal(t=t, Y=np.array(X))
+        U_sig = Signal(t=t[:-1], Y=np.array(U))
 
-        return Trajectory(X=X_sig, U=U_sig, dt=dt)
+        return Trajectory(X=X_sig, U=U_sig)
     
     def rollout(self, x0, U):
         """
@@ -44,7 +44,6 @@ class Simulator:
             U_arr = U
 
         N = U_arr.shape[0]
-        dt = self.model.dt
 
         X = [x0.copy()]
         x = x0.copy()
@@ -54,11 +53,11 @@ class Simulator:
             x = self.model.step(x, u)
             X.append(x.copy())
 
-        t = np.arange(N+1) * dt
-        X_sig = Signal(t=t, Y=np.array(X), dt=dt)
-        U_sig = Signal(t=t[:-1], Y=U_arr, dt=dt)
+        t = self.model.t
+        X_sig = Signal(t=t, Y=np.array(X))
+        U_sig = Signal(t=t[:-1], Y=U_arr)
 
-        return Trajectory(X=X_sig, U=U_sig, dt=dt)
+        return Trajectory(X=X_sig, U=U_sig)
     
     def simulate_tvlqr(self, x0, controller):
         return self.run(x0, controller=controller, N=controller.N)

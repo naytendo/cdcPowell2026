@@ -55,7 +55,7 @@ class TVLQR:
 
     def control(self, x, k):
         # raw TVLQR control
-        u = self.U_ref[k] - self.K[k] @ (x - self.X_ref[k])
+        u = self.U_ref[k] - self.K[k] @ (x.flatten() - self.X_ref[k])
 
         # initialize previous control on first call
         if self.u_prev is None:

@@ -25,6 +25,6 @@ def defects_norm(
     """Sum of squared one-step defects ‖f(X[k],U[k]) - X[k+1]‖^2 along the horizon."""
     dsum = 0.0
     for k in range(ref.N):
-        d = f_dt(ref.X[k], ref.U[k]) - ref.X[k+1]
+        d = f_dt(ref.X.Y[k], ref.U.Y[k],k) - ref.X.Y[k+1]
         dsum += float(d @ d)
     return dsum

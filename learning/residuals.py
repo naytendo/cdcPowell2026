@@ -2,7 +2,7 @@
 
 import numpy as np
 from .residual_data import ResidualData
-from ..core.signal import Signal
+from core.signal import Signal
 
 def collect_residuals(model_nom, model_true, traj):
     """
@@ -33,7 +33,6 @@ def collect_residuals(model_nom, model_true, traj):
     X = traj.X.Y          # shape (N+1, nx)
     U = traj.U.Y          # shape (N,   nu)
     t = traj.X.t          # shape (N+1,)
-    dt = traj.dt
     N = traj.U.N
 
     Xk  = X[:-1]          # (N, nx)
@@ -44,14 +43,14 @@ def collect_residuals(model_nom, model_true, traj):
         xk = X[k]
         uk = U[k]
 
-        xkp1_true = model_true.step(xk, uk)
-        xkp1_nom  = model_nom.step(xk, uk)
+        xkp1_true = model_true.step(xk, uk, k)
+        xkp1_nom  = model_nom.step(xk, uk, k)
 
         Ek1[k] = xkp1_true - xkp1_nom
 
     # Wrap into Signals
-    sig_Xk  = Signal(t=t[:-1], Y=Xk,  dt=dt, labels=traj.X.labels)
-    sig_Uk  = Signal(t=t[:-1], Y=Uk,  dt=dt, labels=traj.U.labels)
-    sig_Ek1 = Signal(t=t[:-1], Y=Ek1, dt=dt, labels=traj.X.labels)
+    sig_Xk  = Signal(t=t[:-1], Y=Xk, labels=traj.X.labels)
+    sig_Uk  = Signal(t=t[:-1], Y=Uk, labels=traj.U.labels)
+    sig_Ek1 = Signal(t=t[:-1], Y=Ek1, labels=traj.X.labels)
 
     return ResidualData(Xk=sig_Xk, Uk=sig_Uk, Ek1=sig_Ek1)

@@ -13,7 +13,6 @@ ArrF = NDArray[np.floating]
 class Trajectory:
     X: Signal     # state signal (N+1, nx)
     U: Signal     # input signal (N, nu)
-    dt: float
 
     # -------------------------
     # Basic properties
@@ -47,21 +46,24 @@ class Trajectory:
                 f"X has {self.X.N} samples but U has {self.U.N}. "
                 "Expected X.N = U.N + 1."
             )
-        if not np.isclose(self.X.dt, self.dt):
-            raise ValueError("X.dt must equal Trajectory.dt")
-        if not np.isclose(self.U.dt, self.dt):
-            raise ValueError("U.dt must equal Trajectory.dt")
 
     # -------------------------
     # Replacement helper
     # -------------------------
-    def with_(self, *, X=None, U=None, dt=None) -> "Trajectory":
-        return replace(
-            self,
-            X=self.X if X is None else X,
-            U=self.U if U is None else U,
-            dt=self.dt if dt is None else float(dt),
-        )
+
+    def with_(self, X=None, U=None):
+        X_new = X if X is not None else self.X
+        U_new = U if U is not None else self.U
+
+        # auto-wrap arrays into Signals
+        if not isinstance(X_new, Signal):
+            X_new = Signal(t=self.X.t, Y=X_new)
+        if not isinstance(U_new, Signal):
+            U_new = Signal(t=self.U.t, Y=U_new)
+
+        return Trajectory(X=X_new, U=U_new)
+
+
 
     # -------------------------
     # Residuals
@@ -89,9 +91,9 @@ class Trajectory:
             Ek1[k] = X[k+1] - xkp1_model
 
         # Build signals
-        sig_Xk  = Signal(t=t[:-1], Y=Xk,  dt=dt, labels=self.X.labels)
-        sig_Uk  = Signal(t=t[:-1], Y=Uk,  dt=dt, labels=self.U.labels)
-        sig_Ek1 = Signal(t=t[:-1], Y=Ek1, dt=dt, labels=self.X.labels)
+        sig_Xk  = Signal(t=t[:-1], Y=Xk, labels=self.X.labels)
+        sig_Uk  = Signal(t=t[:-1], Y=Uk, labels=self.U.labels)
+        sig_Ek1 = Signal(t=t[:-1], Y=Ek1, labels=self.X.labels)
 
         return ResidualData(Xk=sig_Xk, Uk=sig_Uk, Ek1=sig_Ek1)
 

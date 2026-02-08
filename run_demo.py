@@ -10,11 +10,8 @@ from models.discrete_model import DiscreteModel
 from visuals import plot_tvlqr_run, plot_aero_trace, plot_trajectory, plot_trajectories, plot_residual_components_multi
 from diagnostics.feasibility import FeasibilityConstraints, feasibility_score, feasibility_report
 from warm_start.dispatcher import warm_start_U
-from control import feasible_control_iterative, make_Qff, tvlqr_controller
-from simulate_old import simulate_tv_lqr
-from learning import collect_residuals
-from identifcation import fit_residual_model, predict_residual, batch_features, fit_residual_rkhs
-from bounds import finite_horizon_cost_gap_bound
+from control import feasible_control_iterative, make_Qff
+from learning.residuals import collect_residuals
 from core.reference_builder import accelerate_with_push_over_reference
 from learning.polynomial_residual_model import PolynomialResidualModel
 from learning.rkhs_residual_model import RKHSResidualModel
@@ -76,11 +73,13 @@ def main():
         u_min=u_min, u_max=u_max,
         xN_target=ref.X.Y[-1], xN_tol=2.0  # e.g., 2 m terminal tolerance
     )
-    nom_discrete_model = DiscreteModel(nom_model, dt = dt, method = "euler")
-    true_discrete_model = DiscreteModel(true_model, dt = dt, method = "euler")
-    f_nom_dt =  nom_discrete_model.f_dt
-    f_true_dt = true_discrete_model.f_dt
-    f_nom = lambda x,u: f_nom_dt(x,u,p_nom)
+    nom_discrete_model = DiscreteModel(nom_model, t = ref.t, method = "euler")
+    true_discrete_model = DiscreteModel(true_model, t = ref.t, method = "euler")
+    
+    f_true = true_discrete_model.f_dt
+    f_nom = nom_discrete_model.f_dt
+
+
     # evaluate a trajectory (raw ref, feasible ref, rollout, etc.)
 
     
@@ -99,7 +98,8 @@ def main():
 
     plot_trajectory(ref, show=True, save_prefix="results/ref")
     
-    Q = make_Qff(ref.dt, w_v=1.0, w_gam=10.0, w_h_per_sec=5.0)
+    dt_avg = np.mean(np.diff(ref.t)) 
+    Q = make_Qff(dt_avg, w_v=1.0, w_gam=10.0, w_h_per_sec=5.0)
 
 
     # optional scalar score (for model/method bake-off)
@@ -183,14 +183,15 @@ def main():
 
 
     res_rkhs = collect_residuals(discrete_model_rkhs, true_discrete_model, ref_true_rkhs)
+
     ## Next step: Do a residual model with RKHS after first fitting and collecting and simulation residual augmented model with polynomial model.
 
-    X2, U2, E2 = res_poly.as_training_data()
+    X2_data, U2_data, E2_data = res_poly.as_training_data()
 
-    res_rkhs2 = RKHSResidualModel(lengthscale=0.5, reg=1e-4)
-    res_rkhs2.fit(X2, U2, E2)
+    res_rkhs_model = RKHSResidualModel(lengthscale=0.1, reg=1e-1)
+    res_rkhs_model.fit(X2_data, U2_data, E2_data)
 
-    discrete_model_hybrid = ResidualAugmentedModel(discrete_model_poly, res_rkhs)
+    discrete_model_hybrid = ResidualAugmentedModel(discrete_model_poly, res_rkhs_model)
 
     tvlqr_hybrid = TVLQR(discrete_model_hybrid, Q, R)
     tvlqr_hybrid.compute_gains(ref_feas)

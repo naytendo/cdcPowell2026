@@ -10,12 +10,12 @@ class ResidualAugmentedModel(DiscreteModel):
     """
 
     def __init__(self, model_nom, residual_model):
-        super().__init__(dt=model_nom.dt)
+        super().__init__(cont_sys= model_nom.cont_sys, t=model_nom.t)
         self.model_nom = model_nom
         self.residual_model = residual_model
 
-    def step(self, x, u):
-        x_nom = self.model_nom.step(x, u)
+    def step(self, x, u, k):
+        x_nom = self.model_nom.step(x, u, k)
         e_hat = self.residual_model.predict(x, u)
         return x_nom + e_hat
 

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
-from ..core.signal import Signal
-from ..trajectory import Trajectory
+from core.signal import Signal
+from trajectory import Trajectory
 from .continuous_model import ContinuousModel
 from simulate import rollout
 
@@ -13,28 +13,27 @@ EPS = 1e-6
 @dataclass
 class DiscreteModel:
     cont_sys: ContinuousModel
-    dt: float
-    method: str = "euler"   # or "rk4"
+    t: np.ndarray                 # full time vector
+    method: str = "euler"
 
     def __post_init__(self):
-        # Build and store the discrete-time update function
+        # compute dt[k] = t[k+1] - t[k]
+        self.dt = np.diff(self.t)
         self.f_dt = self._build_discrete_map()
 
-    # ---------------------------------------------------------
-    # Build f_dt(x,u,p) based on chosen method
-    # ---------------------------------------------------------
     def _build_discrete_map(self):
         f_ct = self.cont_sys.get_derivative
-        dt = self.dt
+        dt_vec = self.dt
 
         if self.method == "euler":
-            def f_dt(x, u, p):
-                return x + dt * f_ct(x, u)
+            def f_dt(x, u, k):
+                h = dt_vec[k]
+                return x + h * f_ct(x, u)
             return f_dt
 
         elif self.method == "rk4":
-            def f_dt(x, u, p):
-                h = dt
+            def f_dt(x, u, k):
+                h = dt_vec[k]
                 k1 = f_ct(x, u)
                 k2 = f_ct(x + 0.5*h*k1, u)
                 k3 = f_ct(x + 0.5*h*k2, u)
@@ -48,8 +47,9 @@ class DiscreteModel:
     # ---------------------------------------------------------
     # One-step propagation using stored f_dt
     # ---------------------------------------------------------
-    def step(self, x: ArrF, u: ArrF) -> ArrF:
-        return self.f_dt(x, u, self.cont_sys.params)
+    def step(self, x: ArrF, u: ArrF, k: int) -> ArrF:
+        return self.f_dt(x, u, k)
+
 
     # ---------------------------------------------------------
     # Rollout: Signal + Signal → Signal
@@ -57,14 +57,16 @@ class DiscreteModel:
     def rollout_state(self, X: Signal, U: Signal) -> Signal:
         X_arr = X.Y
         U_arr = U.Y
+        N = U_arr.shape[0]
 
-        # Wrap self.step into a 2-argument function
-        def f(x, u):
-            return self.step(x, u)
+        X_sim = np.zeros_like(X_arr)
+        X_sim[0] = X_arr[0]
 
-        X_sim = rollout(f, X_arr[0], U_arr)
+        for k in range(N):
+            X_sim[k+1] = self.step(X_sim[k], U_arr[k], k)
 
-        return Signal(t=X.t, Y=X_sim, dt=X.dt, labels=X.labels)
+        return Signal(t=X.t, Y=X_sim, labels=X.labels)
+
 
 
     # ---------------------------------------------------------
@@ -72,7 +74,7 @@ class DiscreteModel:
     # ---------------------------------------------------------
     def rollout_trajectory(self, traj: Trajectory) -> Trajectory:
         X_sim = self.rollout_state(traj.X, traj.U)
-        return Trajectory(X=X_sim, U=traj.U, dt=traj.dt)
+        return Trajectory(X=X_sim, U=traj.U)
     
     def linearize(self, traj: Trajectory):
         """
@@ -86,7 +88,6 @@ class DiscreteModel:
         X = traj.X.Y          # (N+1, nx)
         U = traj.U.Y          # (N, nu)
         t = traj.U.t          # Jacobians defined at input times
-        dt = traj.dt
 
         N = traj.U.N
         nx = self.cont_sys.nx
@@ -101,24 +102,24 @@ class DiscreteModel:
             uk = U[k]
 
             # baseline
-            f0 = self.step(xk, uk)
+            f0 = self.step(xk, uk, k)
 
             # ---- A_k = df/dx ----
             for i in range(nx):
                 dx = np.zeros(nx)
                 dx[i] = EPS
-                f_plus = self.step(xk + dx, uk)
+                f_plus = self.step(xk + dx, uk, k)
                 A[k, :, i] = (f_plus - f0) / EPS
 
             # ---- B_k = df/du ----
             for j in range(nu):
                 du = np.zeros(nu)
                 du[j] = EPS
-                f_plus = self.step(xk, uk + du)
+                f_plus = self.step(xk, uk + du, k)
                 B[k, :, j] = (f_plus - f0) / EPS
 
         # Wrap in Signals
-        A_signal = Signal(t=t, Y=A, dt=dt, labels=None)
-        B_signal = Signal(t=t, Y=B, dt=dt, labels=None)
+        A_signal = Signal(t=t, Y=A, labels=None)
+        B_signal = Signal(t=t, Y=B, labels=None)
 
         return A_signal, B_signal

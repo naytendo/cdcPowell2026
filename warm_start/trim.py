@@ -178,8 +178,9 @@ def warm_start_trim_U(
             )
 
         elif trim == 'rate':
-            vdot_des     = (traj.X.Y[k+1,0] - traj.X.Y[k,0]) / traj.dt
-            gammadot_des = (traj.X.Y[k+1,1] - traj.X.Y[k,1]) / traj.dt
+            dt = traj.t[k+1]-traj.t[k]
+            vdot_des     = (traj.X.Y[k+1,0] - traj.X.Y[k,0]) / dt
+            gammadot_des = (traj.X.Y[k+1,1] - traj.X.Y[k,1]) / dt
 
             z = trim_rate(
                 nom_sys, xk,
@@ -199,7 +200,6 @@ def warm_start_trim_U(
     U_sig = Signal(
         t=traj.t[:-1],
         Y=U_trim,
-        dt=traj.dt,
         labels=traj.U.labels
     )
 

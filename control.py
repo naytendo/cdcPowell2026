@@ -91,11 +91,12 @@ def feasible_control(
     du_clip: Optional[float] = 0.05,
 ) -> Trajectory:
     """One forward pass of 1-step Gauss–Newton to warm-start U_ref."""
-    X, U = ref.X, ref.U.copy()
+    X, U = ref.X.Y, ref.U.Y.copy()
     N = U.shape[0]
     for k in range(N):
+        f_k = lambda x, u, k=k: f_dt(x, u, k)
         U[k] = feedforward_step(
-            f_hat_dt=f_dt,
+            f_hat_dt=f_k,
             Xk_ref=X[k], Xkp1_ref=X[k+1], Uk_ref=U[k], Qff=Qff,
             rho=rho, u_min=u_min, u_max=u_max, du_clip=du_clip
         )
@@ -105,7 +106,7 @@ def rollout_nominal(f_dt: Callable[[Vec, Vec], Vec], x0: Vec, U: np.ndarray) -> 
     X = np.zeros((U.shape[0] + 1, x0.size))
     X[0] = x0
     for k in range(U.shape[0]):
-        X[k+1] = f_dt(X[k], U[k])
+        X[k+1] = f_dt(X[k], U[k],k)
     return X
 
 def feasible_control_with_rollout(
@@ -121,7 +122,7 @@ def feasible_control_with_rollout(
     # pass 1: adjust U along fixed X
     ref1 = feasible_control(ref, f_dt, Qff, rho=rho, u_min=u_min, u_max=u_max, du_clip=du_clip)
     # pass 2: refresh X by rolling out nominal with the new U
-    X_new = rollout_nominal(f_dt, ref.X[0], ref1.U)
+    X_new = rollout_nominal(f_dt, ref.X.Y[0], ref1.U.Y)
     return ref1.with_(X=X_new)
 
 # -------- Optional: an iterative wrapper (1–3 passes) with a simple stop rule --------
@@ -191,7 +192,6 @@ def tvlqr_controller(traj_ref, f_model_dt, p_model, Q, R, P_N):
     """
     Xref = traj_ref.X
     Uref = traj_ref.U
-    dt   = traj_ref.dt
     N    = Uref.shape[0]
 
     A_seq = []

@@ -6,7 +6,6 @@ from core.structs import Trajectory
 from core.signal import Signal
 from core.structs import DynEval, DynEvalSignals
 from typing import Optional
-from warm_start.dispatcher import warm_start_U
 
 ArrF = NDArray[np.floating]
 
@@ -92,5 +91,7 @@ class ContinuousModel:
             rho  = Signal(t=t, Y=rho,  dt=dt),
         )
     
-    def warm_start(self, traj, **kwargs): 
+    def warm_start(self, traj, **kwargs):
+        from warm_start.dispatcher import warm_start_U
         return warm_start_U(traj, self, **kwargs)
+
